@@ -148,3 +148,66 @@ export function calculateAggregates(logs) {
     history: results
   };
 }
+
+/**
+ * Calculate a sustainability score based on the current footprint and target budget.
+ * Higher is better; values are clamped to 0-100 for clear UI presentation.
+ *
+ * @param {number} emissions - Current daily emissions in kg CO₂
+ * @param {number} target - User target budget in kg CO₂
+ * @returns {number} Sustainability score from 0 to 100
+ */
+export function calculateSustainabilityScore(emissions = 0, target = 12) {
+  const safeTarget = Math.max(1, Number(target) || 12);
+  const safeEmissions = Math.max(0, Number(emissions) || 0);
+  const score = 100 - (safeEmissions / safeTarget) * 100;
+
+  return parseFloat(Math.min(100, Math.max(0, score)).toFixed(1));
+}
+
+export function calculateProgressSummary(logs = []) {
+  const entries = Array.isArray(logs) ? logs : [];
+  const now = new Date();
+
+  const toDateOnly = (value) => {
+    const safeDate = new Date(value);
+    return new Date(safeDate.getFullYear(), safeDate.getMonth(), safeDate.getDate());
+  };
+
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeek = new Date(startOfToday);
+  startOfWeek.setDate(startOfToday.getDate() - 6);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const previousWeekStart = new Date(startOfWeek);
+  previousWeekStart.setDate(startOfWeek.getDate() - 7);
+  const previousWeekEnd = new Date(startOfWeek);
+  previousWeekEnd.setDate(startOfWeek.getDate() - 1);
+
+  const previousMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const previousMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+
+  const sumForRange = (start, end) => entries
+    .filter((entry) => {
+      const entryDate = toDateOnly(entry.date);
+      return entryDate >= start && entryDate <= end;
+    })
+    .reduce((sum, entry) => sum + calculateDailyEmissions(entry.inputs).total, 0);
+
+  const weekTotal = sumForRange(startOfWeek, startOfToday);
+  const monthTotal = sumForRange(startOfMonth, startOfToday);
+  const previousWeekTotal = sumForRange(previousWeekStart, previousWeekEnd);
+  const previousMonthTotal = sumForRange(previousMonthStart, previousMonthEnd);
+
+  const weekChange = previousWeekTotal > 0 ? ((weekTotal - previousWeekTotal) / previousWeekTotal) * 100 : 0;
+  const monthChange = previousMonthTotal > 0 ? ((monthTotal - previousMonthTotal) / previousMonthTotal) * 100 : 0;
+
+  return {
+    weekTotal: parseFloat(weekTotal.toFixed(2)),
+    weekAverage: parseFloat((weekTotal / Math.max(entries.filter((entry) => toDateOnly(entry.date) >= startOfWeek && toDateOnly(entry.date) <= startOfToday).length, 1)).toFixed(2)),
+    monthTotal: parseFloat(monthTotal.toFixed(2)),
+    monthAverage: parseFloat((monthTotal / Math.max(entries.filter((entry) => toDateOnly(entry.date) >= startOfMonth && toDateOnly(entry.date) <= startOfToday).length, 1)).toFixed(2)),
+    weekChange: parseFloat(weekChange.toFixed(1)),
+    monthChange: parseFloat(monthChange.toFixed(1)),
+  };
+}

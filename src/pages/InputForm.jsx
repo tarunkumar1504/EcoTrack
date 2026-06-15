@@ -14,6 +14,8 @@ export default function InputForm({ onSaveLog }) {
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [savedCO2, setSavedCO2] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [feedbackMessage, setFeedbackMessage] = useState('');
 
   // Form State
   const [formState, setFormState] = useState({
@@ -118,13 +120,29 @@ export default function InputForm({ onSaveLog }) {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSaveLog(date, formState);
-    setSavedCO2(liveEstimate.total);
-    setShowSuccess(true);
-    // Reset success banner after 5 seconds
-    setTimeout(() => {
+
+    if (liveEstimate.total <= 0) {
+      setFeedbackMessage('Add at least one activity value before saving your log.');
       setShowSuccess(false);
-    }, 6000);
+      return;
+    }
+
+    setIsSaving(true);
+    setFeedbackMessage('');
+
+    try {
+      onSaveLog(date, formState);
+      setSavedCO2(liveEstimate.total);
+      setShowSuccess(true);
+      window.setTimeout(() => {
+        setShowSuccess(false);
+        setIsSaving(false);
+      }, 2600);
+    } catch (error) {
+      setFeedbackMessage('We could not save your log. Please try again.');
+      setIsSaving(false);
+      console.error('Failed to save log', error);
+    }
   };
 
   const currentCategory = CATEGORIES.find(c => c.id === selectedTab);
@@ -139,8 +157,12 @@ export default function InputForm({ onSaveLog }) {
       </div>
 
       {/* Success Notification Alert */}
+      {feedbackMessage && (
+        <p className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100" role="alert" aria-live="assertive">{feedbackMessage}</p>
+      )}
+
       {showSuccess && (
-        <div className="bg-emerald-500/10 border-l-4 border-emerald-500 p-5 rounded-2xl animate-fade-in flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0">
+        <div className="bg-emerald-500/10 border-l-4 border-emerald-500 p-5 rounded-2xl animate-fade-in flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0" role="status" aria-live="polite">
           <div className="flex items-center space-x-3.5">
             <div className="bg-emerald-500/20 p-2.5 rounded-xl text-emerald-400">
               <Sparkles className="w-6 h-6" />
@@ -154,6 +176,7 @@ export default function InputForm({ onSaveLog }) {
             </div>
           </div>
           <button
+            type="button"
             onClick={() => setShowSuccess(false)}
             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 px-4 py-1.5 rounded-lg hover:bg-emerald-500/5 transition"
           >
@@ -166,9 +189,11 @@ export default function InputForm({ onSaveLog }) {
       <div className="glass-panel p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Date Selector */}
         <div className="flex flex-col space-y-1.5">
-          <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Logging Date:</label>
+          <label htmlFor="logging-date" className="text-xs font-bold text-slate-400 uppercase tracking-wider">Logging Date:</label>
           <input
+            id="logging-date"
             type="date"
+            aria-label="Logging date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
             className="glass-input text-sm text-slate-200 px-4 py-2.5 rounded-xl bg-slate-900 w-full md:w-56"
@@ -181,6 +206,7 @@ export default function InputForm({ onSaveLog }) {
           <div className="flex flex-wrap gap-2.5">
             <button
               type="button"
+              aria-label="Load the eco day preset"
               onClick={() => applyProfile('eco')}
               className="px-3.5 py-2 border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 hover:bg-emerald-500/10 rounded-xl text-xs font-bold transition"
             >
@@ -188,6 +214,7 @@ export default function InputForm({ onSaveLog }) {
             </button>
             <button
               type="button"
+              aria-label="Load the commuter preset"
               onClick={() => applyProfile('average')}
               className="px-3.5 py-2 border border-slate-700 bg-slate-800/40 text-slate-300 hover:bg-slate-800/80 rounded-xl text-xs font-bold transition"
             >
@@ -195,6 +222,7 @@ export default function InputForm({ onSaveLog }) {
             </button>
             <button
               type="button"
+              aria-label="Load the high emissions preset"
               onClick={() => applyProfile('high')}
               className="px-3.5 py-2 border border-rose-500/20 bg-rose-500/5 text-rose-400 hover:bg-rose-500/10 rounded-xl text-xs font-bold transition"
             >
@@ -254,6 +282,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Petrol car distance in km"
                       min="0"
                       max="150"
                       value={formState.travel.carPetrol}
@@ -270,6 +299,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Diesel car distance in km"
                       min="0"
                       max="150"
                       value={formState.travel.carDiesel}
@@ -286,6 +316,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Hybrid car distance in km"
                       min="0"
                       max="150"
                       value={formState.travel.carHybrid}
@@ -302,6 +333,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Electric car distance in km"
                       min="0"
                       max="150"
                       value={formState.travel.carElectric}
@@ -318,6 +350,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Bus distance in km"
                       min="0"
                       max="100"
                       value={formState.travel.bus}
@@ -334,6 +367,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Train distance in km"
                       min="0"
                       max="200"
                       value={formState.travel.train}
@@ -349,6 +383,7 @@ export default function InputForm({ onSaveLog }) {
                       <div className="flex items-center space-x-2">
                         <input
                           type="number"
+                          aria-label="Flight distance in km"
                           value={formState.travel.flight}
                           onChange={(e) => handleTravelChange('flight', e.target.value)}
                           className="glass-input text-xs w-20 px-2.5 py-1 rounded bg-slate-900 text-center font-bold text-blue-400"
@@ -358,6 +393,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Flight distance slider"
                       min="0"
                       max="1500"
                       step="50"
@@ -393,6 +429,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Grid electricity use in kWh"
                       min="0"
                       max="50"
                       step="0.5"
@@ -413,6 +450,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Renewable electricity use in kWh"
                       min="0"
                       max="50"
                       step="0.5"
@@ -560,6 +598,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Landfill waste in kilograms"
                       min="0"
                       max="15"
                       step="0.2"
@@ -577,6 +616,7 @@ export default function InputForm({ onSaveLog }) {
                     </div>
                     <input
                       type="range"
+                      aria-label="Recycled waste in kilograms"
                       min="0"
                       max="15"
                       step="0.2"
@@ -594,7 +634,8 @@ export default function InputForm({ onSaveLog }) {
           <div className="p-5 border-t border-slate-800/60 bg-slate-950/20 flex items-center justify-end">
             <button
               type="submit"
-              className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-lg shadow-emerald-500/15 hover:shadow-emerald-600/20 transition-all duration-200"
+              aria-label="Save log data"
+              className="flex items-center space-x-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm shadow-lg shadow-emerald-500/15 hover:shadow-emerald-600/20 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-950"
             >
               <Save className="w-4 h-4" />
               <span>Save Log Data</span>

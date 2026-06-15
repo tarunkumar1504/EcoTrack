@@ -1,18 +1,23 @@
-import React from 'react';
-import { Calendar, AlertTriangle, TrendingDown, TrendingUp, Sparkles, Check, Car, Zap, ChefHat, Trash2, ArrowUpDown } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { Calendar, AlertTriangle, TrendingDown, TrendingUp, Sparkles, Check, Car, Zap, ChefHat, Trash2 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import OffsetSimulator from '../components/OffsetSimulator';
-import { calculateDailyEmissions } from '../utils/calculations';
+import { calculateDailyEmissions, calculateProgressSummary, calculateSustainabilityScore } from '../utils/calculations';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, XAxis, YAxis, ReferenceLine } from 'recharts';
 
 export default function Dashboard({ logs, settings, completedSuggestions, suggestions, onClaimSuggestion, ecoPoints, setActivePage }) {
-  // Get latest log
-  const latestLog = logs && logs.length > 0 ? logs[logs.length - 1] : null;
-  const latestEmissions = latestLog ? calculateDailyEmissions(latestLog.inputs) : { total: 0, breakdown: { travel: 0, electricity: 0, food: 0, waste: 0 } };
+  const latestLog = useMemo(() => (logs && logs.length > 0 ? logs[logs.length - 1] : null), [logs]);
+  const latestEmissions = useMemo(() => latestLog ? calculateDailyEmissions(latestLog.inputs) : { total: 0, breakdown: { travel: 0, electricity: 0, food: 0, waste: 0 } }, [latestLog]);
+  const progressSummary = useMemo(() => calculateProgressSummary(logs), [logs]);
 
   // Calculate stats
   const todayVal = latestEmissions.total;
   const targetVal = settings.dailyTarget;
+  const sustainabilityScore = useMemo(() => calculateSustainabilityScore(todayVal, targetVal), [todayVal, targetVal]);
+  const goalProgress = Math.max(0, Math.min(100, 100 - ((todayVal / Math.max(targetVal, 1)) * 100)));
+  const impactInsight = todayVal <= targetVal
+    ? `You are ${Math.max(0, Math.round((targetVal - todayVal) * 10) / 10).toFixed(1)} kg CO₂ under your daily goal.`
+    : `You are ${Math.max(0.1, (todayVal - targetVal).toFixed(1))} kg CO₂ over the target, so small habit swaps can help.`;
 
   // Calculate 7-day average
   const total7Days = logs.reduce((sum, log) => sum + calculateDailyEmissions(log.inputs).total, 0);
@@ -43,36 +48,50 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
     : `${pctDiff.toFixed(0)}% above target limit`;
 
   // Pie chart data
-  const pieData = [
+  const pieData = useMemo(() => [
     { name: 'Travel', value: latestEmissions.breakdown.travel, color: '#3b82f6', icon: Car },
     { name: 'Energy', value: latestEmissions.breakdown.electricity, color: '#f59e0b', icon: Zap },
     { name: 'Food', value: latestEmissions.breakdown.food, color: '#10b981', icon: ChefHat },
     { name: 'Waste', value: latestEmissions.breakdown.waste, color: '#8b5cf6', icon: Trash2 },
-  ].filter(item => item.value > 0);
+  ].filter(item => item.value > 0), [latestEmissions]);
 
   // Line chart history trend data
-  const historyData = logs.map(log => {
+  const historyData = useMemo(() => logs.map(log => {
     const emissions = calculateDailyEmissions(log.inputs);
     return {
       date: log.date,
       dateLabel: new Date(log.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }),
       total: emissions.total
     };
-  });
+  }), [logs]);
 
-  // Personalized eco tips based on highest emitter
-  const getEcoAdvice = () => {
+  const advice = useMemo(() => {
     const b = latestEmissions.breakdown;
     const max = Math.max(b.travel, b.electricity, b.food, b.waste);
-    
-    if (max === 0) return { title: "Great work!", tip: "Log your activities daily to calculate your footprint and start shrinking your environmental impact.", category: "general" };
-    if (max === b.travel) return { title: "Focus on Transit", tip: "Your travel emissions are currently your largest factor. Consider carpooling, biking for short trips, or using public transit to cut this down.", category: "travel" };
-    if (max === b.electricity) return { title: "Reduce Energy Use", tip: "Heating and electronics are driving up your footprint. Try switching off standby appliances and using cold water for laundry cycles.", category: "electricity" };
-    if (max === b.food) return { title: "Revamp Food Habits", tip: "Food habits represent your largest impact right now. Replacing just two meat meals with vegetarian options can save up to 10kg CO2 per week.", category: "food" };
-    return { title: "Manage Home Waste", tip: "Waste generation is running high. Try composting organic waste and double-checking recyclable packaging details before disposal.", category: "waste" };
-  };
 
-  const advice = getEcoAdvice();
+    if (max === 0) {
+      return { title: 'Great work!', tip: 'Log your activities daily to calculate your footprint and start shrinking your environmental impact.', category: 'general' };
+    }
+    if (max === b.travel) {
+      return { title: 'Focus on Transit', tip: 'Your travel emissions are currently your largest factor. Consider carpooling, biking for short trips, or using public transit to cut this down.', category: 'travel' };
+    }
+    if (max === b.electricity) {
+      return { title: 'Reduce Energy Use', tip: 'Heating and electronics are driving up your footprint. Try switching off standby appliances and using cold water for laundry cycles.', category: 'electricity' };
+    }
+    if (max === b.food) {
+      return { title: 'Revamp Food Habits', tip: 'Food habits represent your largest impact right now. Replacing just two meat meals with vegetarian options can save up to 10kg CO2 per week.', category: 'food' };
+    }
+
+    return { title: 'Manage Home Waste', tip: 'Waste generation is running high. Try composting organic waste and double-checking recyclable packaging details before disposal.', category: 'waste' };
+  }, [latestEmissions]);
+  const achievements = useMemo(() => {
+    const items = [];
+    if (streak >= 3) items.push('Eco Streak');
+    if (progressSummary.weekChange < 0) items.push('Weekly Improvement');
+    if (sustainabilityScore >= 80) items.push('High Impact Score');
+    if (completedSuggestions.length >= 2) items.push('Challenge Champion');
+    return items.length ? items : ['Start logging to earn badges'];
+  }, [streak, progressSummary.weekChange, sustainabilityScore, completedSuggestions.length]);
 
   // Find 2 active suggestions that haven't been completed yet
   const uncompletedSugs = suggestions
@@ -133,12 +152,20 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
           trend={avgVal <= targetVal ? 'Good' : 'Needs Work'}
         />
         <StatCard
-          title="Daily Budget Target"
-          value={targetVal}
+          title="Weekly Progress"
+          value={progressSummary.weekTotal.toFixed(1)}
           unit="kg CO₂"
-          subtitle="Adjustable in Settings"
-          icon={Sparkles}
-          status="neutral"
+          subtitle={progressSummary.weekChange < 0 ? `Down ${Math.abs(progressSummary.weekChange).toFixed(0)}% vs last week` : 'Compare your weekly trend'}
+          icon={TrendingUp}
+          status={progressSummary.weekChange < 0 ? 'success' : 'warning'}
+        />
+        <StatCard
+          title="Monthly Progress"
+          value={progressSummary.monthTotal.toFixed(1)}
+          unit="kg CO₂"
+          subtitle={progressSummary.monthChange < 0 ? `Down ${Math.abs(progressSummary.monthChange).toFixed(0)}% vs last month` : 'Monitor monthly habits'}
+          icon={TrendingDown}
+          status={progressSummary.monthChange < 0 ? 'success' : 'neutral'}
         />
         <StatCard
           title="Active Eco Streak"
@@ -148,6 +175,15 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
           icon={TrendingDown}
           status={streak > 0 ? 'success' : 'neutral'}
           trend={streak > 0 ? `${streak} Days 🔥` : 'No Streak'}
+        />
+        <StatCard
+          title="Sustainability Score"
+          value={sustainabilityScore}
+          unit="/100"
+          subtitle={impactInsight}
+          icon={Sparkles}
+          status={sustainabilityScore >= 80 ? 'success' : sustainabilityScore >= 60 ? 'warning' : 'danger'}
+          trend={sustainabilityScore >= 80 ? 'Excellent' : 'Keep improving'}
         />
       </div>
 
@@ -277,6 +313,38 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
             )}
           </div>
 
+          {/* Goal Progress + Insights */}
+          <div className="glass-panel p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-l-4 border-l-emerald-500 mb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-400 font-bold">Progress Snapshot</p>
+                <h3 className="text-lg font-bold text-white mt-1">Weekly & monthly trend</h3>
+                <p className="text-sm text-slate-300 mt-2">This week: {progressSummary.weekTotal.toFixed(1)} kg CO₂ · This month: {progressSummary.monthTotal.toFixed(1)} kg CO₂.</p>
+              </div>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">{sustainabilityScore}/100</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mt-4">
+              {achievements.map((badge) => (
+                <span key={badge} className="rounded-full border border-emerald-500/20 bg-emerald-500/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-300">{badge}</span>
+              ))}
+            </div>
+          </div>
+
+          <div className="glass-panel p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-l-4 border-l-emerald-500">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-400 font-bold">Goal Progress</p>
+                <h3 className="text-lg font-bold text-white mt-1">Carbon reduction goal</h3>
+                <p className="text-sm text-slate-300 mt-2">{impactInsight}</p>
+              </div>
+              <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-300">{goalProgress.toFixed(0)}%</span>
+            </div>
+            <div className="mt-4 h-2 rounded-full bg-slate-800 overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" style={{ width: `${goalProgress}%` }} />
+            </div>
+            <p className="text-[11px] text-slate-400 mt-3">Sustainability achievements: {streak > 0 ? 'Eco streak active' : 'Start logging to unlock streak badges'} · Score {sustainabilityScore}/100.</p>
+          </div>
+
           {/* Eco Tips Advice Card */}
           <div className="glass-panel p-5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-950 to-slate-900 border-l-4 border-l-emerald-500">
             <div className="flex items-start space-x-4">
@@ -286,6 +354,7 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-emerald-400 uppercase tracking-wider">{advice.title}</h4>
                 <p className="text-sm text-slate-200 font-medium leading-relaxed">{advice.tip}</p>
+                <p className="text-xs text-slate-300 leading-relaxed">Impact insight: your biggest source is {advice.category}. Small changes here can lower your footprint faster than trying to fix every category at once.</p>
                 <button
                   onClick={() => setActivePage('suggestions')}
                   className="text-xs text-emerald-400 hover:text-emerald-300 font-bold underline inline-block pt-1.5"

@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Navbar from './components/Navbar';
-import Dashboard from './pages/Dashboard';
-import InputForm from './pages/InputForm';
-import Analytics from './pages/Analytics';
-import Suggestions from './pages/Suggestions';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const InputForm = lazy(() => import('./pages/InputForm'));
+const Analytics = lazy(() => import('./pages/Analytics'));
+const Suggestions = lazy(() => import('./pages/Suggestions'));
 
 import {
   getLogs,
@@ -132,39 +133,41 @@ export default function App() {
 
         {/* Dynamic Pages Container */}
         <div className="flex-1 p-6 max-w-7xl w-full mx-auto pb-16">
-          {activePage === 'dashboard' && (
-            <Dashboard
-              logs={logs}
-              settings={settings}
-              completedSuggestions={completedSuggestions}
-              suggestions={SUGGESTIONS}
-              onClaimSuggestion={handleClaimSuggestion}
-              ecoPoints={ecoPoints}
-              setActivePage={setActivePage}
-            />
-          )}
+          <Suspense fallback={<div className="rounded-2xl border border-slate-800 bg-slate-950/80 p-6 text-slate-300">Loading EcoTrack experience…</div>}>
+            {activePage === 'dashboard' && (
+              <Dashboard
+                logs={logs}
+                settings={settings}
+                completedSuggestions={completedSuggestions}
+                suggestions={SUGGESTIONS}
+                onClaimSuggestion={handleClaimSuggestion}
+                ecoPoints={ecoPoints}
+                setActivePage={setActivePage}
+              />
+            )}
 
-          {activePage === 'input' && (
-            <InputForm
-              onSaveLog={handleSaveLog}
-            />
-          )}
+            {activePage === 'input' && (
+              <InputForm
+                onSaveLog={handleSaveLog}
+              />
+            )}
 
-          {activePage === 'analytics' && (
-            <Analytics
-              logs={logs}
-              settings={settings}
-              onDeleteLog={handleDeleteLog}
-            />
-          )}
+            {activePage === 'analytics' && (
+              <Analytics
+                logs={logs}
+                settings={settings}
+                onDeleteLog={handleDeleteLog}
+              />
+            )}
 
-          {activePage === 'suggestions' && (
-            <Suggestions
-              suggestions={SUGGESTIONS}
-              completedSuggestions={completedSuggestions}
-              onClaimSuggestion={handleClaimSuggestion}
-            />
-          )}
+            {activePage === 'suggestions' && (
+              <Suggestions
+                suggestions={SUGGESTIONS}
+                completedSuggestions={completedSuggestions}
+                onClaimSuggestion={handleClaimSuggestion}
+              />
+            )}
+          </Suspense>
         </div>
       </main>
 

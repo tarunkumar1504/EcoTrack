@@ -10,6 +10,22 @@
     min-height: 100%;
     background-color: #090d16;
     color: #f1f5f9;
+    line-height: 1.5;
+  }
+
+  * { box-sizing: border-box; }
+
+  button, input, select, textarea {
+    font: inherit;
+  }
+
+  button:focus-visible,
+  a:focus-visible,
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline: 3px solid rgba(16, 185, 129, 0.9);
+    outline-offset: 2px;
   }
   
   /* Custom scrollbar styling */
@@ -54,8 +70,8 @@
 
 .glass-input:focus {
   outline: none;
-  border-color: rgba(16, 185, 129, 0.5);
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.65);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 /* Micro-animations and effects */
