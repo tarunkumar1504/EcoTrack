@@ -30,49 +30,50 @@ import { EMISSION_FACTORS } from '../data/emissionFactors';
  * 
  * @returns {Object} Total CO2 and breakdown
  */
+const toSafeNumber = (value) => Number(value) || 0;
+const roundTo = (value, digits = 2) => parseFloat(Number(value).toFixed(digits));
+
 export function calculateDailyEmissions(inputs) {
-  // Safe defaults
   const travelInputs = inputs?.travel || {};
   const energyInputs = inputs?.electricity || {};
   const foodInputs = inputs?.food || {};
   const wasteInputs = inputs?.waste || {};
 
-  // 1. Travel Emissions Calculation
   const travelBreakdown = {
-    carPetrol: (Number(travelInputs.carPetrol) || 0) * EMISSION_FACTORS.travel.carPetrol,
-    carDiesel: (Number(travelInputs.carDiesel) || 0) * EMISSION_FACTORS.travel.carDiesel,
-    carHybrid: (Number(travelInputs.carHybrid) || 0) * EMISSION_FACTORS.travel.carHybrid,
-    carElectric: (Number(travelInputs.carElectric) || 0) * EMISSION_FACTORS.travel.carElectric,
-    motorcycle: (Number(travelInputs.motorcycle) || 0) * EMISSION_FACTORS.travel.motorcycle,
-    bus: (Number(travelInputs.bus) || 0) * EMISSION_FACTORS.travel.bus,
-    train: (Number(travelInputs.train) || 0) * EMISSION_FACTORS.travel.train,
-    flight: (Number(travelInputs.flight) || 0) * EMISSION_FACTORS.travel.flight,
+    carPetrol: toSafeNumber(travelInputs.carPetrol) * EMISSION_FACTORS.travel.carPetrol,
+    carDiesel: toSafeNumber(travelInputs.carDiesel) * EMISSION_FACTORS.travel.carDiesel,
+    carHybrid: toSafeNumber(travelInputs.carHybrid) * EMISSION_FACTORS.travel.carHybrid,
+    carElectric: toSafeNumber(travelInputs.carElectric) * EMISSION_FACTORS.travel.carElectric,
+    motorcycle: toSafeNumber(travelInputs.motorcycle) * EMISSION_FACTORS.travel.motorcycle,
+    bus: toSafeNumber(travelInputs.bus) * EMISSION_FACTORS.travel.bus,
+    train: toSafeNumber(travelInputs.train) * EMISSION_FACTORS.travel.train,
+    flight: toSafeNumber(travelInputs.flight) * EMISSION_FACTORS.travel.flight,
+    bicycle: toSafeNumber(travelInputs.bicycle) * EMISSION_FACTORS.travel.bicycle,
+    walking: toSafeNumber(travelInputs.walking) * EMISSION_FACTORS.travel.walking,
   };
 
   const travelTotal = Object.values(travelBreakdown).reduce((sum, val) => sum + val, 0);
 
-  // 2. Electricity Emissions Calculation
   const electricityBreakdown = {
-    grid: (Number(energyInputs.kwh) || 0) * EMISSION_FACTORS.electricity.gridAverage,
-    renewable: (Number(energyInputs.renewableKwh) || 0) * EMISSION_FACTORS.electricity.renewable,
+    grid: toSafeNumber(energyInputs.kwh) * EMISSION_FACTORS.electricity.gridAverage,
+    renewable: toSafeNumber(energyInputs.renewableKwh) * EMISSION_FACTORS.electricity.renewable,
   };
 
   const electricityTotal = Object.values(electricityBreakdown).reduce((sum, val) => sum + val, 0);
 
   // 3. Food Emissions Calculation
   const foodBreakdown = {
-    vegan: (Number(foodInputs.vegan) || 0) * EMISSION_FACTORS.food.vegan,
-    vegetarian: (Number(foodInputs.vegetarian) || 0) * EMISSION_FACTORS.food.vegetarian,
-    nonVegLight: (Number(foodInputs.nonVegLight) || 0) * EMISSION_FACTORS.food.nonVegLight,
-    nonVegHeavy: (Number(foodInputs.nonVegHeavy) || 0) * EMISSION_FACTORS.food.nonVegHeavy,
+    vegan: toSafeNumber(foodInputs.vegan) * EMISSION_FACTORS.food.vegan,
+    vegetarian: toSafeNumber(foodInputs.vegetarian) * EMISSION_FACTORS.food.vegetarian,
+    nonVegLight: toSafeNumber(foodInputs.nonVegLight) * EMISSION_FACTORS.food.nonVegLight,
+    nonVegHeavy: toSafeNumber(foodInputs.nonVegHeavy) * EMISSION_FACTORS.food.nonVegHeavy,
   };
 
   const foodTotal = Object.values(foodBreakdown).reduce((sum, val) => sum + val, 0);
 
-  // 4. Waste Emissions Calculation
   const wasteBreakdown = {
-    landfill: (Number(wasteInputs.landfill) || 0) * EMISSION_FACTORS.waste.landfill,
-    recycle: (Number(wasteInputs.recycled) || 0) * EMISSION_FACTORS.waste.recycle,
+    landfill: toSafeNumber(wasteInputs.landfill) * EMISSION_FACTORS.waste.landfill,
+    recycle: toSafeNumber(wasteInputs.recycled) * EMISSION_FACTORS.waste.recycle,
   };
 
   const wasteTotal = Object.values(wasteBreakdown).reduce((sum, val) => sum + val, 0);
@@ -136,15 +137,14 @@ export function calculateAggregates(logs) {
     { travel: 0, electricity: 0, food: 0, waste: 0 }
   );
 
-  // Clean rounding
-  Object.keys(categoryTotals).forEach(k => {
-    categoryTotals[k] = parseFloat(categoryTotals[k].toFixed(2));
-  });
+  const normalizedCategoryTotals = Object.fromEntries(
+    Object.entries(categoryTotals).map(([category, total]) => [category, roundTo(total)])
+  );
 
   return {
     average: parseFloat(avgTotal.toFixed(2)),
     total: parseFloat(sumTotal.toFixed(2)),
-    byCategory: categoryTotals,
+    byCategory: normalizedCategoryTotals,
     history: results
   };
 }
@@ -163,6 +163,80 @@ export function calculateSustainabilityScore(emissions = 0, target = 12) {
   const score = 100 - (safeEmissions / safeTarget) * 100;
 
   return parseFloat(Math.min(100, Math.max(0, score)).toFixed(1));
+}
+
+export function calculateGoalBudgets(dailyTarget = 12) {
+  const safeDaily = Math.max(1, Number(dailyTarget) || 12);
+  return {
+    weeklyBudget: parseFloat((safeDaily * 7).toFixed(1)),
+    monthlyBudget: parseFloat((safeDaily * 30).toFixed(1))
+  };
+}
+
+const CATEGORY_LABELS = {
+  travel: 'Travel',
+  electricity: 'Energy',
+  food: 'Diet',
+  waste: 'Waste'
+};
+
+const CATEGORY_RECOMMENDATIONS = {
+  travel: {
+    title: 'Lower transport emissions through choice and route.',
+    steps: [
+      'Swap short car trips for biking, walking, or public transit.',
+      'Combine errands and avoid single-purpose drives.',
+      'Choose carpooling or rideshare for longer commutes.'
+    ]
+  },
+  electricity: {
+    title: 'Reduce home energy use with smart habits.',
+    steps: [
+      'Turn off standby electronics and unplug chargers.',
+      'Use cold water for laundry and energy-efficient appliances.',
+      'Switch to LED lighting and adjust thermostat settings.'
+    ]
+  },
+  food: {
+    title: 'Cut diet emissions by shifting meal choices.',
+    steps: [
+      'Choose plant-based meals for at least one meal per day.',
+      'Replace red meat with beans, fish, or vegetarian options.',
+      'Plan meals to reduce food waste and over-purchasing.'
+    ]
+  },
+  waste: {
+    title: 'Manage waste to reduce methane and recycling emissions.',
+    steps: [
+      'Sort recyclables and compost organic scraps.',
+      'Avoid single-use plastics with reusable containers.',
+      'Buy products with minimal packaging or bulk options.'
+    ]
+  }
+};
+
+export function generateReductionPlan(latestEmissions = { total: 0, breakdown: { travel: 0, electricity: 0, food: 0, waste: 0 } }, target = 12) {
+  const safeEmissions = latestEmissions.breakdown || { travel: 0, electricity: 0, food: 0, waste: 0 };
+  const [topCategory] = Object.entries(safeEmissions).reduce(
+    (best, [category, value]) => (value > best[1] ? [category, value] : best),
+    ['travel', 0]
+  );
+
+  const recommendation = CATEGORY_RECOMMENDATIONS[topCategory] || CATEGORY_RECOMMENDATIONS.travel;
+  const dailyGap = Math.max(0, latestEmissions.total - Number(target));
+  const weeklyOpportunity = parseFloat((safeEmissions[topCategory] * 0.2 * 7).toFixed(1));
+
+  return {
+    category: topCategory,
+    categoryLabel: CATEGORY_LABELS[topCategory] || 'General',
+    title: recommendation.title,
+    steps: recommendation.steps,
+    dailyGap: parseFloat(dailyGap.toFixed(1)),
+    weeklyOpportunity,
+    summary: dailyGap > 0
+      ? `Reduce your daily output by ${dailyGap.toFixed(1)} kg CO₂ to meet your target today.`
+      : 'You are at or below your daily goal — keep the momentum and extend it across the week.'
+  };
 }
 
 export function calculateProgressSummary(logs = []) {
@@ -199,14 +273,22 @@ export function calculateProgressSummary(logs = []) {
   const previousWeekTotal = sumForRange(previousWeekStart, previousWeekEnd);
   const previousMonthTotal = sumForRange(previousMonthStart, previousMonthEnd);
 
+  const countRange = (start, end) => entries.filter((entry) => {
+    const entryDate = toDateOnly(entry.date);
+    return entryDate >= start && entryDate <= end;
+  }).length;
+
+  const weekCount = Math.max(countRange(startOfWeek, startOfToday), 1);
+  const monthCount = Math.max(countRange(startOfMonth, startOfToday), 1);
+
   const weekChange = previousWeekTotal > 0 ? ((weekTotal - previousWeekTotal) / previousWeekTotal) * 100 : 0;
   const monthChange = previousMonthTotal > 0 ? ((monthTotal - previousMonthTotal) / previousMonthTotal) * 100 : 0;
 
   return {
-    weekTotal: parseFloat(weekTotal.toFixed(2)),
-    weekAverage: parseFloat((weekTotal / Math.max(entries.filter((entry) => toDateOnly(entry.date) >= startOfWeek && toDateOnly(entry.date) <= startOfToday).length, 1)).toFixed(2)),
-    monthTotal: parseFloat(monthTotal.toFixed(2)),
-    monthAverage: parseFloat((monthTotal / Math.max(entries.filter((entry) => toDateOnly(entry.date) >= startOfMonth && toDateOnly(entry.date) <= startOfToday).length, 1)).toFixed(2)),
+    weekTotal: roundTo(weekTotal),
+    weekAverage: roundTo(weekTotal / weekCount),
+    monthTotal: roundTo(monthTotal),
+    monthAverage: roundTo(monthTotal / monthCount),
     weekChange: parseFloat(weekChange.toFixed(1)),
     monthChange: parseFloat(monthChange.toFixed(1)),
   };

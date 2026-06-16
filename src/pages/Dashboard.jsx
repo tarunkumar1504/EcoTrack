@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Calendar, AlertTriangle, TrendingDown, TrendingUp, Sparkles, Check, Car, Zap, ChefHat, Trash2 } from 'lucide-react';
 import StatCard from '../components/StatCard';
 import OffsetSimulator from '../components/OffsetSimulator';
-import { calculateDailyEmissions, calculateProgressSummary, calculateSustainabilityScore } from '../utils/calculations';
+import { calculateDailyEmissions, calculateProgressSummary, calculateSustainabilityScore, calculateGoalBudgets, generateReductionPlan } from '../utils/calculations';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, AreaChart, Area, XAxis, YAxis, ReferenceLine } from 'recharts';
 
 export default function Dashboard({ logs, settings, completedSuggestions, suggestions, onClaimSuggestion, ecoPoints, setActivePage }) {
@@ -18,6 +18,9 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
   const impactInsight = todayVal <= targetVal
     ? `You are ${Math.max(0, Math.round((targetVal - todayVal) * 10) / 10).toFixed(1)} kg CO₂ under your daily goal.`
     : `You are ${Math.max(0.1, (todayVal - targetVal).toFixed(1))} kg CO₂ over the target, so small habit swaps can help.`;
+
+  const goalBudgets = useMemo(() => calculateGoalBudgets(targetVal), [targetVal]);
+  const reductionPlan = useMemo(() => generateReductionPlan(latestEmissions, targetVal), [latestEmissions, targetVal]);
 
   // Calculate 7-day average
   const total7Days = logs.reduce((sum, log) => sum + calculateDailyEmissions(log.inputs).total, 0);
@@ -342,6 +345,18 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
             <div className="mt-4 h-2 rounded-full bg-slate-800 overflow-hidden">
               <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" style={{ width: `${goalProgress}%` }} />
             </div>
+            <div className="grid grid-cols-2 gap-3 mt-4 text-xs text-slate-300">
+              <div className="rounded-xl bg-slate-900/70 p-3 border border-slate-800/50">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Weekly Budget</p>
+                <p className="mt-2 font-bold text-white">{goalBudgets.weeklyBudget} kg</p>
+                <p className="text-[10px] text-slate-400">Used: {progressSummary.weekTotal.toFixed(1)} kg</p>
+              </div>
+              <div className="rounded-xl bg-slate-900/70 p-3 border border-slate-800/50">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500 font-bold">Monthly Budget</p>
+                <p className="mt-2 font-bold text-white">{goalBudgets.monthlyBudget} kg</p>
+                <p className="text-[10px] text-slate-400">Used: {progressSummary.monthTotal.toFixed(1)} kg</p>
+              </div>
+            </div>
             <p className="text-[11px] text-slate-400 mt-3">Sustainability achievements: {streak > 0 ? 'Eco streak active' : 'Start logging to unlock streak badges'} · Score {sustainabilityScore}/100.</p>
           </div>
 
@@ -362,6 +377,32 @@ export default function Dashboard({ logs, settings, completedSuggestions, sugges
                   Explore Action Plan &rarr;
                 </button>
               </div>
+            </div>
+          </div>
+
+          {/* Personalized Reduction Plan */}
+          <div className="glass-panel p-5 rounded-2xl border border-emerald-500/20 bg-slate-950/80">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-[0.25em] text-emerald-400 font-bold">Personalized Plan</p>
+                <h3 className="text-lg font-bold text-white mt-1">Reduce Your Impact Today</h3>
+              </div>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 border border-slate-800 px-2 py-1 rounded-full">
+                {reductionPlan.categoryLabel}
+              </span>
+            </div>
+            <p className="text-sm text-slate-200 leading-relaxed mb-4">{reductionPlan.summary}</p>
+            <div className="space-y-3">
+              {reductionPlan.steps.map((step, index) => (
+                <div key={index} className="flex items-start gap-3">
+                  <span className="min-w-[24px] min-h-[24px] inline-flex items-center justify-center rounded-full bg-emerald-500/10 text-emerald-300 text-[10px] font-bold">{index + 1}</span>
+                  <p className="text-xs text-slate-300 leading-relaxed">{step}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 rounded-2xl bg-slate-900/80 p-4 border border-slate-800">
+              <p className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-bold mb-2">Recommended weekly improvement</p>
+              <p className="text-sm text-slate-200">Target a reduction of at least <span className="font-bold text-emerald-300">{reductionPlan.weeklyOpportunity} kg CO₂</span> from the top category this week.</p>
             </div>
           </div>
         </div>

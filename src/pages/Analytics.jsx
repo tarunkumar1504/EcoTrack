@@ -1,4 +1,3 @@
-import React from 'react';
 import { Calendar, Trash2, ShieldAlert, BarChart3, TrendingDown, HelpCircle } from 'lucide-react';
 import { calculateDailyEmissions } from '../utils/calculations';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, BarChart, Bar, Cell } from 'recharts';

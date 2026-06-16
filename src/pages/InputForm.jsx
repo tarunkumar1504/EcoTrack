@@ -1,23 +1,70 @@
 import React, { useState } from 'react';
 import { Car, Zap, ChefHat, Trash2, Save, Sparkles, Plus, Minus } from 'lucide-react';
+import SliderInput from '../components/SliderInput';
+import NumberCounter from '../components/NumberCounter';
 import { calculateDailyEmissions } from '../utils/calculations';
 
 const CATEGORIES = [
-  { id: 'travel', name: 'Travel', icon: Car, color: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-  { id: 'electricity', name: 'Energy', icon: Zap, color: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-  { id: 'food', name: 'Diet', icon: ChefHat, color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
-  { id: 'waste', name: 'Waste', icon: Trash2, color: 'text-purple-400 bg-purple-500/10 border-purple-500/20' }
+  { id: 'travel', name: 'Travel', icon: Car, accentClass: 'accent-blue-500' },
+  { id: 'electricity', name: 'Energy', icon: Zap, accentClass: 'accent-amber-500' },
+  { id: 'food', name: 'Diet', icon: ChefHat, accentClass: 'accent-emerald-500' },
+  { id: 'waste', name: 'Waste', icon: Trash2, accentClass: 'accent-purple-500' }
 ];
+
+const TRAVEL_FIELDS = [
+  { key: 'carPetrol', label: 'Petrol Car', min: 0, max: 150, description: 'Petrol car distance in km' },
+  { key: 'carDiesel', label: 'Diesel Car', min: 0, max: 150, description: 'Diesel car distance in km' },
+  { key: 'carHybrid', label: 'Hybrid Car', min: 0, max: 150, description: 'Hybrid car distance in km' },
+  { key: 'carElectric', label: 'Electric Car (EV)', min: 0, max: 150, description: 'Electric car distance in km' },
+  { key: 'bus', label: 'Public Bus Commute', min: 0, max: 100, description: 'Bus distance in km' },
+  { key: 'train', label: 'Train/Metro Transit', min: 0, max: 200, description: 'Train distance in km' },
+];
+
+const ELECTRICITY_FIELDS = [
+  { key: 'kwh', label: 'Standard Grid Electricity', min: 0, max: 50, step: 0.5, description: 'Power pulled from regional grid mix' },
+  { key: 'renewableKwh', label: 'Renewable Electricity Offset', min: 0, max: 50, step: 0.5, description: 'Solar, wind, or certified clean power' }
+];
+
+const WASTE_FIELDS = [
+  { key: 'landfill', label: 'Landfill Waste', min: 0, max: 15, step: 0.2, description: 'Unsorted waste in kg' },
+  { key: 'recycled', label: 'Recycled Waste', min: 0, max: 15, step: 0.2, description: 'Sorted recycled waste in kg' }
+];
+
+const FOOD_FIELDS = [
+  { key: 'vegan', label: 'Vegan Meals', description: 'Fully plant-based meals' },
+  { key: 'vegetarian', label: 'Vegetarian Meals', description: 'Dairy or egg-based meals' },
+  { key: 'nonVegLight', label: 'Light Meat / Fish', description: 'Poultry, fish, or light meat meals' },
+  { key: 'nonVegHeavy', label: 'Heavy Meat Meals', description: 'Beef, lamb, or pork meals' }
+];
+
+const PRESET_PROFILES = {
+  eco: {
+    travel: { carPetrol: 0, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 5, train: 0, flight: 0 },
+    electricity: { kwh: 3, renewableKwh: 6 },
+    food: { vegan: 3, vegetarian: 0, nonVegLight: 0, nonVegHeavy: 0 },
+    waste: { landfill: 0.5, recycled: 3 }
+  },
+  average: {
+    travel: { carPetrol: 25, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 0, train: 0, flight: 0 },
+    electricity: { kwh: 10, renewableKwh: 0 },
+    food: { vegan: 0, vegetarian: 1, nonVegLight: 2, nonVegHeavy: 0 },
+    waste: { landfill: 2, recycled: 1.5 }
+  },
+  high: {
+    travel: { carPetrol: 60, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 0, train: 0, flight: 0 },
+    electricity: { kwh: 22, renewableKwh: 0 },
+    food: { vegan: 0, vegetarian: 0, nonVegLight: 1, nonVegHeavy: 2 },
+    waste: { landfill: 5, recycled: 0.5 }
+  }
+};
 
 export default function InputForm({ onSaveLog }) {
   const [selectedTab, setSelectedTab] = useState('travel');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [savedCO2, setSavedCO2] = useState(0);
-  const [isSaving, setIsSaving] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState('');
 
-  // Form State
   const [formState, setFormState] = useState({
     travel: {
       carPetrol: 0,
@@ -45,76 +92,33 @@ export default function InputForm({ onSaveLog }) {
     }
   });
 
-  // Calculate live estimate
   const liveEstimate = calculateDailyEmissions(formState);
 
-  // Update logic helpers
-  const handleTravelChange = (field, val) => {
-    const num = Math.max(0, parseFloat(val) || 0);
-    setFormState(prev => ({
-      ...prev,
-      travel: { ...prev.travel, [field]: num }
-    }));
-  };
+  const toPositiveNumber = (value) => Math.max(0, Number(value) || 0);
 
-  const handleElectricityChange = (field, val) => {
-    const num = Math.max(0, parseFloat(val) || 0);
-    setFormState(prev => ({
-      ...prev,
-      electricity: { ...prev.electricity, [field]: num }
-    }));
-  };
-
-  const handleFoodChange = (field, val) => {
-    const num = Math.max(0, parseInt(val) || 0);
-    setFormState(prev => ({
-      ...prev,
-      food: { ...prev.food, [field]: num }
-    }));
-  };
-
-  const handleWasteChange = (field, val) => {
-    const num = Math.max(0, parseFloat(val) || 0);
-    setFormState(prev => ({
-      ...prev,
-      waste: { ...prev.waste, [field]: num }
+  const updateFormField = (category, field, rawValue) => {
+    const value = toPositiveNumber(rawValue);
+    setFormState((prevFormState) => ({
+      ...prevFormState,
+      [category]: { ...prevFormState[category], [field]: value }
     }));
   };
 
   const handleFoodCounter = (field, amount) => {
-    setFormState(prev => {
-      const current = prev.food[field] || 0;
+    setFormState((prevFormState) => {
+      const current = prevFormState.food[field] || 0;
       const next = Math.max(0, current + amount);
       return {
-        ...prev,
-        food: { ...prev.food, [field]: next }
+        ...prevFormState,
+        food: { ...prevFormState.food, [field]: next }
       };
     });
   };
 
-  // Quick Seed profiles
   const applyProfile = (profileType) => {
-    if (profileType === 'eco') {
-      setFormState({
-        travel: { carPetrol: 0, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 5, train: 0, flight: 0 },
-        electricity: { kwh: 3, renewableKwh: 6 },
-        food: { vegan: 3, vegetarian: 0, nonVegLight: 0, nonVegHeavy: 0 },
-        waste: { landfill: 0.5, recycled: 3 }
-      });
-    } else if (profileType === 'average') {
-      setFormState({
-        travel: { carPetrol: 25, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 0, train: 0, flight: 0 },
-        electricity: { kwh: 10, renewableKwh: 0 },
-        food: { vegan: 0, vegetarian: 1, nonVegLight: 2, nonVegHeavy: 0 },
-        waste: { landfill: 2, recycled: 1.5 }
-      });
-    } else if (profileType === 'high') {
-      setFormState({
-        travel: { carPetrol: 60, carDiesel: 0, carHybrid: 0, carElectric: 0, motorcycle: 0, bus: 0, train: 0, flight: 0 },
-        electricity: { kwh: 22, renewableKwh: 0 },
-        food: { vegan: 0, vegetarian: 0, nonVegLight: 1, nonVegHeavy: 2 },
-        waste: { landfill: 5, recycled: 0.5 }
-      });
+    const preset = PRESET_PROFILES[profileType];
+    if (preset) {
+      setFormState(preset);
     }
   };
 
@@ -127,7 +131,6 @@ export default function InputForm({ onSaveLog }) {
       return;
     }
 
-    setIsSaving(true);
     setFeedbackMessage('');
 
     try {
@@ -136,11 +139,9 @@ export default function InputForm({ onSaveLog }) {
       setShowSuccess(true);
       window.setTimeout(() => {
         setShowSuccess(false);
-        setIsSaving(false);
       }, 2600);
     } catch (error) {
       setFeedbackMessage('We could not save your log. Please try again.');
-      setIsSaving(false);
       console.error('Failed to save log', error);
     }
   };
@@ -274,138 +275,50 @@ export default function InputForm({ onSaveLog }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Petrol Car */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Petrol Car</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.carPetrol} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Petrol car distance in km"
-                      min="0"
-                      max="150"
-                      value={formState.travel.carPetrol}
-                      onChange={(e) => handleTravelChange('carPetrol', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
+                    {TRAVEL_FIELDS.map((field) => (
+                      <SliderInput
+                        key={field.key}
+                        label={field.label}
+                        value={formState.travel[field.key]}
+                        min={field.min}
+                        max={field.max}
+                        step={field.step || 1}
+                        unit="km"
+                        description={field.description}
+                        accentClass="accent-blue-500"
+                        onChange={(e) => updateFormField('travel', field.key, e.target.value)}
+                      />
+                    ))}
 
-                  {/* Diesel Car */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Diesel Car</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.carDiesel} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Diesel car distance in km"
-                      min="0"
-                      max="150"
-                      value={formState.travel.carDiesel}
-                      onChange={(e) => handleTravelChange('carDiesel', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Hybrid Car */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Hybrid Car</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.carHybrid} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Hybrid car distance in km"
-                      min="0"
-                      max="150"
-                      value={formState.travel.carHybrid}
-                      onChange={(e) => handleTravelChange('carHybrid', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Electric Car */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Electric Car (EV)</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.carElectric} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Electric car distance in km"
-                      min="0"
-                      max="150"
-                      value={formState.travel.carElectric}
-                      onChange={(e) => handleTravelChange('carElectric', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Public Bus */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Public Bus Commute</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.bus} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Bus distance in km"
-                      min="0"
-                      max="100"
-                      value={formState.travel.bus}
-                      onChange={(e) => handleTravelChange('bus', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Train */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Train/Metro Transit</span>
-                      <span className="text-xs font-bold text-blue-400">{formState.travel.train} km</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Train distance in km"
-                      min="0"
-                      max="200"
-                      value={formState.travel.train}
-                      onChange={(e) => handleTravelChange('train', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
-                  </div>
-
-                  {/* Flights */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 md:col-span-2">
-                    <div className="flex justify-between items-center mb-1.5">
-                      <span className="text-xs font-bold text-slate-300">Flights (Long/Short distance)</span>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="number"
-                          aria-label="Flight distance in km"
-                          value={formState.travel.flight}
-                          onChange={(e) => handleTravelChange('flight', e.target.value)}
-                          className="glass-input text-xs w-20 px-2.5 py-1 rounded bg-slate-900 text-center font-bold text-blue-400"
-                        />
-                        <span className="text-xs text-slate-500">km</span>
+                    <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 md:col-span-2">
+                      <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs font-bold text-slate-300">Flights (Long/Short distance)</span>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            aria-label="Flight distance in km"
+                            value={formState.travel.flight}
+                            onChange={(e) => updateFormField('travel', 'flight', e.target.value)}
+                            className="glass-input text-xs w-20 px-2.5 py-1 rounded bg-slate-900 text-center font-bold text-blue-400"
+                          />
+                          <span className="text-xs text-slate-500">km</span>
+                        </div>
                       </div>
+                      <SliderInput
+                        label="Flight Distance"
+                        value={formState.travel.flight}
+                        min={0}
+                        max={1500}
+                        step={50}
+                        unit="km"
+                        description="Estimated flight travel distance"
+                        accentClass="accent-blue-500"
+                        onChange={(e) => updateFormField('travel', 'flight', e.target.value)}
+                      />
                     </div>
-                    <input
-                      type="range"
-                      aria-label="Flight distance slider"
-                      min="0"
-                      max="1500"
-                      step="50"
-                      value={formState.travel.flight}
-                      onChange={(e) => handleTravelChange('flight', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                    />
                   </div>
                 </div>
-              </div>
-            )}
-
+              )}
             {/* Energy Tab */}
             {selectedTab === 'electricity' && (
               <div className="space-y-5">
@@ -418,47 +331,20 @@ export default function InputForm({ onSaveLog }) {
                 </div>
 
                 <div className="space-y-6">
-                  {/* Grid Electricity */}
-                  <div className="bg-slate-900/30 p-5 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <span className="text-xs font-bold text-slate-200 block">Standard Grid Electricity</span>
-                        <span className="text-[10px] text-slate-500 block">Power pulled from local regional grid mix</span>
-                      </div>
-                      <span className="text-sm font-extrabold text-amber-400">{formState.electricity.kwh} kWh</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Grid electricity use in kWh"
-                      min="0"
-                      max="50"
-                      step="0.5"
-                      value={formState.electricity.kwh}
-                      onChange={(e) => handleElectricityChange('kwh', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
+                  {ELECTRICITY_FIELDS.map((field) => (
+                    <SliderInput
+                      key={field.key}
+                      label={field.label}
+                      value={formState.electricity[field.key]}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      unit="kWh"
+                      description={field.description}
+                      accentClass={field.key === 'kwh' ? 'accent-amber-500' : 'accent-emerald-500'}
+                      onChange={(e) => updateFormField('electricity', field.key, e.target.value)}
                     />
-                  </div>
-
-                  {/* Clean Renewable Energy */}
-                  <div className="bg-slate-900/30 p-5 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between items-center mb-2">
-                      <div>
-                        <span className="text-xs font-bold text-slate-200 block">Clean Renewable Energy Offset</span>
-                        <span className="text-[10px] text-slate-500 block">Solar, wind, or purchased certified clean power</span>
-                      </div>
-                      <span className="text-sm font-extrabold text-emerald-400">{formState.electricity.renewableKwh} kWh</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Renewable electricity use in kWh"
-                      min="0"
-                      max="50"
-                      step="0.5"
-                      value={formState.electricity.renewableKwh}
-                      onChange={(e) => handleElectricityChange('renewableKwh', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
-                    />
-                  </div>
+                  ))}
                 </div>
               </div>
             )}
@@ -475,105 +361,17 @@ export default function InputForm({ onSaveLog }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Vegan */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block">Vegan Meals</span>
-                      <span className="text-[10px] text-slate-500">Fully plant-based, 0.35kg CO₂</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('vegan', -1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-sm font-extrabold text-white w-5 text-center">{formState.food.vegan}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('vegan', 1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Vegetarian */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block">Vegetarian Meals</span>
-                      <span className="text-[10px] text-slate-500">Contains dairy / eggs, 0.60kg CO₂</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('vegetarian', -1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-sm font-extrabold text-white w-5 text-center">{formState.food.vegetarian}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('vegetarian', 1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Light Meat */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block">Light Meat / Fish</span>
-                      <span className="text-[10px] text-slate-500">Poultry, fish, seafood, 1.40kg CO₂</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('nonVegLight', -1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-sm font-extrabold text-white w-5 text-center">{formState.food.nonVegLight}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('nonVegLight', 1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Heavy Meat */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-slate-200 block">Heavy Meat Meals</span>
-                      <span className="text-[10px] text-slate-500">Beef, lamb, pork, 2.80kg CO₂</span>
-                    </div>
-                    <div className="flex items-center space-x-3">
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('nonVegHeavy', -1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-sm font-extrabold text-white w-5 text-center">{formState.food.nonVegHeavy}</span>
-                      <button
-                        type="button"
-                        onClick={() => handleFoodCounter('nonVegHeavy', 1)}
-                        className="p-1 border border-slate-700 hover:border-slate-500 text-slate-400 hover:text-slate-200 rounded-md transition"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
+                  {FOOD_FIELDS.map((field) => (
+                    <NumberCounter
+                      key={field.key}
+                      label={field.label}
+                      value={formState.food[field.key]}
+                      description={field.description}
+                      ariaLabel={field.label}
+                      onDecrement={() => handleFoodCounter(field.key, -1)}
+                      onIncrement={() => handleFoodCounter(field.key, 1)}
+                    />
+                  ))}
                 </div>
               </div>
             )}
@@ -590,41 +388,20 @@ export default function InputForm({ onSaveLog }) {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Landfill Trash */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Landfill Unsorted Waste</span>
-                      <span className="text-xs font-bold text-purple-400">{formState.waste.landfill} kg</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Landfill waste in kilograms"
-                      min="0"
-                      max="15"
-                      step="0.2"
-                      value={formState.waste.landfill}
-                      onChange={(e) => handleWasteChange('landfill', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
+                  {WASTE_FIELDS.map((field) => (
+                    <SliderInput
+                      key={field.key}
+                      label={field.label}
+                      value={formState.waste[field.key]}
+                      min={field.min}
+                      max={field.max}
+                      step={field.step}
+                      unit="kg"
+                      description={field.description}
+                      accentClass="accent-purple-500"
+                      onChange={(e) => updateFormField('waste', field.key, e.target.value)}
                     />
-                  </div>
-
-                  {/* Recycled Trash */}
-                  <div className="bg-slate-900/30 p-4 rounded-xl border border-slate-800/40">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-xs font-bold text-slate-300">Sorted Recycled Waste</span>
-                      <span className="text-xs font-bold text-purple-400">{formState.waste.recycled} kg</span>
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Recycled waste in kilograms"
-                      min="0"
-                      max="15"
-                      step="0.2"
-                      value={formState.waste.recycled}
-                      onChange={(e) => handleWasteChange('recycled', e.target.value)}
-                      className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500"
-                    />
-                  </div>
+                  ))}
                 </div>
               </div>
             )}

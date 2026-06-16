@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import Navbar from './components/Navbar';
+import SettingsModal from './components/SettingsModal';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const InputForm = lazy(() => import('./pages/InputForm'));
@@ -18,16 +19,32 @@ import {
   resetAppData
 } from './utils/storage';
 import { SUGGESTIONS } from './data/suggestionsData';
-import { Leaf, Award, Shield, User, Settings } from 'lucide-react';
+import { User, Settings } from 'lucide-react';
+
+const PAGE_IDS = {
+  DASHBOARD: 'dashboard',
+  INPUT: 'input',
+  ANALYTICS: 'analytics',
+  SUGGESTIONS: 'suggestions'
+};
+
+const DEFAULT_SETTINGS = {
+  userName: 'Eco Explorer',
+  dailyTarget: 12.0
+};
 
 export default function App() {
-  const [activePage, setActivePage] = useState('dashboard');
+  const [activePage, setActivePage] = useState(PAGE_IDS.DASHBOARD);
   const [logs, setLogs] = useState([]);
-  const [settings, setSettings] = useState({ userName: 'Eco Explorer', dailyTarget: 12.0 });
+  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [completedSuggestions, setCompletedSuggestions] = useState([]);
   const [ecoPoints, setEcoPoints] = useState(150);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
-  const [tempSettings, setTempSettings] = useState({ userName: '', dailyTarget: 12.0 });
+  const [tempSettings, setTempSettings] = useState(DEFAULT_SETTINGS);
+
+  const handleTempSettingChange = (field, value) => {
+    setTempSettings((prevSettings) => ({ ...prevSettings, [field]: value }));
+  };
 
   // Initialize data on mount
   useEffect(() => {
@@ -54,7 +71,7 @@ export default function App() {
 
   // Handler to toggle suggestion completion and adjust points
   const handleClaimSuggestion = (id, points) => {
-    const { completed, isCompleted } = toggleSuggestionCompleted(id, points);
+    const { completed } = toggleSuggestionCompleted(id, points);
     setCompletedSuggestions(completed);
     setEcoPoints(getPoints());
   };
@@ -68,16 +85,15 @@ export default function App() {
       setTempSettings(reset.settings);
       setCompletedSuggestions(reset.completedSuggestions);
       setEcoPoints(reset.points);
-      setActivePage('dashboard');
+      setActivePage(PAGE_IDS.DASHBOARD);
     }
   };
 
-  // Save Settings Modal form
   const handleSaveSettings = (e) => {
     e.preventDefault();
-    const targetVal = Math.max(1, parseFloat(tempSettings.dailyTarget) || 12.0);
+    const targetVal = Math.max(1, Number(tempSettings.dailyTarget) || 12.0);
     const updated = {
-      userName: tempSettings.userName.trim() || 'Eco Explorer',
+      userName: tempSettings.userName.trim() || DEFAULT_SETTINGS.userName,
       dailyTarget: parseFloat(targetVal.toFixed(1))
     };
     saveSettings(updated);
@@ -173,62 +189,12 @@ export default function App() {
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="glass-panel p-6 rounded-2xl w-full max-w-md bg-slate-900 border border-slate-800 shadow-2xl relative">
-            <h3 className="text-lg font-bold text-white mb-2">Adjust Tracker Limits</h3>
-            <p className="text-xs text-slate-400 mb-5">Configure your user profile details and standard carbon benchmarks.</p>
-
-            <form onSubmit={handleSaveSettings} className="space-y-4">
-              {/* User Name */}
-              <div className="flex flex-col space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Explorer Username</label>
-                <input
-                  type="text"
-                  value={tempSettings.userName}
-                  onChange={(e) => setTempSettings({ ...tempSettings, userName: e.target.value })}
-                  placeholder="Enter Explorer Name"
-                  className="glass-input text-sm text-slate-200 px-4 py-2.5 rounded-xl bg-slate-950 w-full"
-                  required
-                />
-              </div>
-
-              {/* Daily Limit Target */}
-              <div className="flex flex-col space-y-1.5">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-wide">Daily Limit Budget (kg CO₂)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="1"
-                  max="100"
-                  value={tempSettings.dailyTarget}
-                  onChange={(e) => setTempSettings({ ...tempSettings, dailyTarget: e.target.value })}
-                  className="glass-input text-sm text-slate-200 px-4 py-2.5 rounded-xl bg-slate-950 w-full font-bold"
-                  required
-                />
-                <span className="text-[10px] text-slate-500 leading-normal">
-                  Standard environment budgets suggest around 10-15 kg per capita.
-                </span>
-              </div>
-
-              {/* Modal Buttons */}
-              <div className="flex items-center justify-end space-x-3 pt-4 border-t border-slate-850">
-                <button
-                  type="button"
-                  onClick={() => setShowSettingsModal(false)}
-                  className="text-xs font-bold text-slate-400 hover:text-slate-200 px-4 py-2 border border-slate-850 hover:bg-slate-850 rounded-xl transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-extrabold text-xs px-5 py-2.5 rounded-xl transition"
-                >
-                  Apply Settings
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <SettingsModal
+          tempSettings={tempSettings}
+          onTempChange={handleTempSettingChange}
+          onClose={() => setShowSettingsModal(false)}
+          onSave={handleSaveSettings}
+        />
       )}
     </div>
   );

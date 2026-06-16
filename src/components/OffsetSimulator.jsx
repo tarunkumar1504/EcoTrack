@@ -1,21 +1,24 @@
 import React, { useState } from 'react';
-import { Trees, Car, Smartphone, Trash2, HelpCircle } from 'lucide-react';
+import { Trees, Car, Smartphone, Trash2 } from 'lucide-react';
+
+const SIMULATION_FACTORS = {
+  treeAbsorptionPerKg: 0.06,
+  carEmissionPerKm: 0.18,
+  phoneChargeEmission: 0.008,
+  landfillEmissionPerKg: 0.5,
+};
 
 export default function OffsetSimulator({ initialSaved = 15 }) {
   const [simulationValue, setSimulationValue] = useState(initialSaved || 15);
 
-  // Equivalencies calculations based on EPA Greenhouse Gas Equivalencies Calculator
-  // 1 tree absorbs approx 0.06 kg CO2 per day (22 kg / year)
-  const treeDays = (simulationValue / 0.06).toFixed(0);
-  
-  // 1 km of driving petrol car emits ~0.18 kg CO2
-  const carKmSaved = (simulationValue / 0.18).toFixed(1);
-  
-  // Charging 1 smartphone emits ~0.008 kg CO2
-  const phoneCharges = (simulationValue / 0.008).toFixed(0);
-  
-  // 1 kg of waste in landfill emits ~0.5 kg CO2
-  const landfillAvoided = (simulationValue / 0.5).toFixed(1);
+  const getEquivalentMetrics = (value) => ({
+    treeDays: Math.round(value / SIMULATION_FACTORS.treeAbsorptionPerKg),
+    carKmSaved: parseFloat((value / SIMULATION_FACTORS.carEmissionPerKm).toFixed(1)),
+    phoneCharges: Math.round(value / SIMULATION_FACTORS.phoneChargeEmission),
+    landfillAvoided: parseFloat((value / SIMULATION_FACTORS.landfillEmissionPerKg).toFixed(1)),
+  });
+
+  const { treeDays, carKmSaved, phoneCharges, landfillAvoided } = getEquivalentMetrics(simulationValue);
 
   return (
     <div className="glass-panel p-6 rounded-2xl relative overflow-hidden">

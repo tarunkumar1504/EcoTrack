@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Leaf, Award, Lightbulb, Check, ShieldAlert, Car, Zap, ChefHat, Trash2, ArrowUpDown } from 'lucide-react';
+import { Leaf, Award, Lightbulb, Check, Car, Zap, ChefHat, Trash2, ArrowUpDown } from 'lucide-react';
 
 export default function Suggestions({ suggestions, completedSuggestions, onClaimSuggestion }) {
   const [activeCategory, setActiveCategory] = useState('all');
